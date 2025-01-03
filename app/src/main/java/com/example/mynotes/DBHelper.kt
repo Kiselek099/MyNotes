@@ -50,4 +50,15 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         db.delete(TABLE_NAME, null, null)
         db.close()
     }
+    fun updateNote(id: Int, newText: String) {
+        val db = this.writableDatabase
+        val contentValues = ContentValues().apply {
+            put(KEY_TEXT, newText)
+        }
+
+        val whereClause = "$KEY_ID = ?"
+        val whereArgs = arrayOf(id.toString())
+        db.update(TABLE_NAME, contentValues, whereClause, whereArgs)
+        db.close()
+    }
 }

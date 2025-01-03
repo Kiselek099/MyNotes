@@ -5,11 +5,9 @@ import android.os.Bundle
 import android.view.*
 import android.widget.*
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.setFragmentResultListener
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -23,6 +21,7 @@ class MainFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_main, container, false)
+
         val toolbar: androidx.appcompat.widget.Toolbar = view.findViewById(R.id.toolbar)
         toolbar.title = "Мои заметки"
         toolbar.inflateMenu(R.menu.menu_main)
@@ -40,16 +39,18 @@ class MainFragment : Fragment() {
         val notesRV: RecyclerView = view.findViewById(R.id.notesRV)
 
         dbHelper = DBHelper(requireContext(), null)
-        notesAdapter = NotesAdapter(mutableListOf())
+        notesAdapter = NotesAdapter(mutableListOf()) { note ->
+            openEditFragment(note)
+        }
         notesRV.apply {
             adapter = notesAdapter
             layoutManager = LinearLayoutManager(context)
         }
-
         saveBTN.setOnClickListener {
             val noteText = noteET.text.toString()
             if (noteText.isNotBlank()) {
-                val timestamp = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
+                val timestamp =
+                    SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())
                 dbHelper.addNote(noteText, false, timestamp)
                 loadNotes()
                 noteET.text.clear()
@@ -57,9 +58,15 @@ class MainFragment : Fragment() {
                 Toast.makeText(context, "Введите текст заметки", Toast.LENGTH_SHORT).show()
             }
         }
+        setFragmentResultListener("edit_note_result") { _, bundle ->
+            val updatedNote = bundle.getParcelable<Note>("updated_note")
+            if (updatedNote != null) {
+                dbHelper.updateNote(updatedNote.id, updatedNote.text)
+                loadNotes()
+            }
+        }
 
         loadNotes()
-
         return view
     }
 
@@ -76,5 +83,15 @@ class MainFragment : Fragment() {
             }
         }
         notesAdapter.updateNotes(notes)
+    }
+
+    private fun openEditFragment(note: Note) {
+        val fragment = EditNoteFragment().apply {
+            arguments = Bundle().apply { putParcelable("note", note) }
+        }
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.main, fragment)
+            .addToBackStack(null)
+            .commit()
     }
 }
